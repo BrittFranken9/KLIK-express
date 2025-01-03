@@ -5,6 +5,10 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import session from 'express-session';
 import User from './models/user.js';
+import testRoute from './routes/test.js';
+import indexRoute from './routes/index.js';
+import messagesRoute from './routes/messages.js';
+import userRoute from './routes/users.js';
 import mongoStore from 'connect-mongo';
 
 dotenv.config();
@@ -82,6 +86,12 @@ app.get(
     scope: ['profile', 'email'], // Required scopes
   })
 );
+
+app.use('/', indexRoute);
+app.use('/test', testRoute);
+app.use('/messages', messagesRoute);
+app.use('/users', userRoute);
+
 
 // Step 2: Handle Google OAuth callback
 app.get(

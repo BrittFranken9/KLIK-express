@@ -113,18 +113,23 @@ app.get('/auth/google', (req, res, next) => {
 
 app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    const user = req.user;
-    const { redirectUri } = JSON.parse(req.query.state); // Retrieve from state
-    const fallbackUri = 'exp://localhost:19000';
+    try {
+      const user = req.user;
+      const { redirectUri } = JSON.parse(req.query.state); // Retrieve from state
+      const fallbackUri = 'exp://localhost:19000';
 
-    const userInfo = {
-      id: user._id,
-      username: user.username,
-      email: user.email,
-    };
+      const userInfo = {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+      };
 
-    const redirectUrl = `${redirectUri || fallbackUri}?user=${encodeURIComponent(JSON.stringify(userInfo))}`;
-    res.redirect(redirectUrl);
+      const redirectUrl = `${redirectUri || fallbackUri}?user=${encodeURIComponent(JSON.stringify(userInfo))}`;
+      res.redirect(redirectUrl);
+    } catch (err) {
+      console.error('Error in callback processing:', err);
+      res.redirect('/');
+    }
   }
 );
 

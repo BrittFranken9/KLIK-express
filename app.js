@@ -79,15 +79,36 @@ app.use('/messages', messagesRoute);
 app.use('/users', userRoute);
 
 // Google Authentication Routes
-app.get('/auth/google', (req, res, next) => {
-  const redirectUri = req.query.redirectUri;
+app.get('/auth/google/callback', (req, res, next) => {
+  try {
+    const state = req.query.state ? JSON.parse(req.query.state) : {};
+    const redirectUri = state.redirectUri || 'exp://localhost:19000';
 
-  const authOptions = {
-    scope: ['profile', 'email'],
-    state: JSON.stringify({ redirectUri }) // Encode redirectUri in state
-  };
-  
-  passport.authenticate('google', authOptions)(req, res, next);
+    passport.authenticate('google', { failureRedirect: '/' }, (err, user) => {
+      if (err || !user) {
+        return res.redirect('/');
+      }
+
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error('Error during login:', loginErr);
+          return res.redirect('/');
+        }
+
+        const userInfo = {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+        };
+
+        const redirectUrl = `${redirectUri}?user=${encodeURIComponent(JSON.stringify(userInfo))}`;
+        res.redirect(redirectUrl);
+      });
+    })(req, res, next);
+  } catch (err) {
+    console.error('Error in callback processing:', err);
+    res.redirect('/');
+  }
 });
 
 app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }),

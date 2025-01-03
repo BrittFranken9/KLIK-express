@@ -4,29 +4,29 @@ import dotenv from 'dotenv';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import session from 'express-session';
-import User from './models/user.js';
-import testRoute from './routes/test.js';
+import connectMongo from 'connect-mongo';
+import User from './models/user.js'; // Ensure this path is correct
+import testRoute from './routes/test.js'; // Ensure these paths are correct
 import indexRoute from './routes/index.js';
 import messagesRoute from './routes/messages.js';
 import userRoute from './routes/users.js';
-import mongoStore from 'connect-mongo';
 
 dotenv.config();
 
 const app = express();
+const MongoStore = connectMongo(session);
 
+// Middleware for JSON parsing
 app.use(express.json());
 
 // Configure session middleware
 app.use(
   session({
-    store: mongoStore.create({ mongoUrl: process.env.MONGO_URI }),
+    store: new MongoStore({ mongoUrl: process.env.MONGO_URI }),
     secret: process.env.SESSION_SECRET,
-    resave: true,
+    resave: false,
     saveUninitialized: false,
-    cookie: {
-      maxAge: 24 * 60 * 60 * 1000, // 1 day in milliseconds
-    },
+    cookie: { maxAge: 24 * 60 * 60 * 1000 }, // 1 day
   })
 );
 
@@ -34,7 +34,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Passport Google Strategy
+// Google OAuth strategy configuration
 passport.use(
   new GoogleStrategy(
     {
@@ -44,9 +44,10 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const email = profile.emails[0].value;
-        let user = await User.findOne({ email });
+        const email = profile.emails[0]?.value;
+        if (!email) throw new Error('Email not found in Google profile');
 
+        let user = await User.findOne({ email });
         if (!user) {
           user = await User.create({
             username: profile.displayName,
@@ -56,6 +57,7 @@ passport.use(
 
         return done(null, user);
       } catch (error) {
+        console.error('Error during Google authentication:', error);
         return done(error, null);
       }
     }
@@ -69,59 +71,58 @@ passport.deserializeUser(async (id, done) => {
     const user = await User.findById(id);
     done(null, user);
   } catch (error) {
+    console.error('Error during user deserialization:', error);
     done(error, null);
   }
 });
 
-mongoose.connect(process.env.MONGO_URI);
+// MongoDB connection
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
 const db = mongoose.connection;
-db.on('error', (error) => console.error(error));
-db.once('open', () => console.log('Connected to database'));
+db.on('error', console.error.bind(console, 'MongoDB connection error:'));
+db.once('open', () => console.log('Connected to MongoDB'));
 
-// Google Authentication Routes
-// Step 1: Initiate Google OAuth
-app.get(
-  '/auth/google',
-  passport.authenticate('google', {
-    scope: ['profile', 'email'], // Required scopes
-  })
-);
-
+// Routes
 app.use('/', indexRoute);
 app.use('/test', testRoute);
 app.use('/messages', messagesRoute);
 app.use('/users', userRoute);
 
+// Google OAuth Routes
+app.get(
+  '/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
 
-// Step 2: Handle Google OAuth callback
 app.get(
   '/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    try {
-      const user = req.user;
-      const fallbackUri = 'exp://localhost:19000';
+    const fallbackUri = 'exp://localhost:19000';
+    const userInfo = {
+      id: req.user._id,
+      username: req.user.username,
+      email: req.user.email,
+    };
 
-      // Define user info to return
-      const userInfo = {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-      };
-
-      // Redirect to the application with user info
-      const redirectUri = req.query.redirectUri || fallbackUri;
-      const redirectUrl = `${redirectUri}?user=${encodeURIComponent(
-        JSON.stringify(userInfo)
-      )}`;
-      res.redirect(redirectUrl);
-    } catch (err) {
-      console.error('Error in callback processing:', err);
-      res.redirect('/');
-    }
+    const redirectUri = req.query.redirectUri || fallbackUri;
+    const redirectUrl = `${redirectUri}?user=${encodeURIComponent(
+      JSON.stringify(userInfo)
+    )}`;
+    res.redirect(redirectUrl);
   }
 );
 
+// Default error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Something went wrong!' });
+});
+
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

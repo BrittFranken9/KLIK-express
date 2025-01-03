@@ -79,7 +79,7 @@ app.use('/messages', messagesRoute);
 app.use('/users', userRoute);
 
 // Google Authentication Routes
-app.get('/auth/google/callback', (req, res, next) => {
+app.get('/auth/google', (req, res, next) => {
   try {
     const state = req.query.state ? JSON.parse(req.query.state) : {};
     const redirectUri = state.redirectUri || 'exp://localhost:19000';

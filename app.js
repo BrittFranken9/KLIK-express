@@ -1,9 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import routeIndex from '@/routes/index.js';
-import routeTest from '@/routes/test.js';
-import routeMessages from '@/routes/messages.js';
-import routeUsers from '@/routes/users.js';
+import routeIndex from './routes/index.js';
+import routeTest from './routes/test.js';
+import routeMessages from './routes/messages.js';
+import routeUsers from './routes/users.js';
 
 
 dotenv.config();

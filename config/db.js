@@ -2,10 +2,9 @@ import mongoose from 'mongoose';
 
 app.use(express.json());
 
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-});
+const mongoose = require('mongoose');
+
+mongoose.connect('mongodb://your-database-uri');
 
 const db = mongoose.connection;
 

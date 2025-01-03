@@ -4,7 +4,7 @@ app.use(express.json());
 
 const mongoose = require('mongoose');
 
-mongoose.connect('mongodb://your-database-uri');
+mongoose.connect(process.env.MONGO_URI);
 
 const db = mongoose.connection;
 
